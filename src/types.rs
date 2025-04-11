@@ -877,7 +877,7 @@ impl<T: SetType> NormalListResult<T> {
                             options.push(AddOption::Packets(fields[i + 1].parse()?));
                         }
                         "bytes" => {
-                            options.push(AddOption::Bytes(fields[i + 1].trim().replace("\0", "").parse()?));
+                            options.push(AddOption::Bytes(fields[i + 1].parse()?));
                         }
                         "comment" => {
                             options.push(AddOption::Comment(fields[i + 1].to_string()));

@@ -288,6 +288,7 @@ impl<T: SetType> Session<T> {
             let mut result = NormalListResult::default();
             for line in &self.output {
                 for s in line.split("\n") {
+                    let s = s.trim_end_matches('\0');
                     if !s.is_empty() {
                         result.update_from_str(s)?;
                     }

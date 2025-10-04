@@ -251,14 +251,22 @@ impl<T: SetType> Session<T> {
         if unset {
             self.unset_option(EnvOption::ListSetName);
         }
-        match ret? {
-            ListResult::Normal(_) => {
+        // Reset session data after list to avoid interfering with subsequent operations
+        unsafe {
+            binding::ipset_data_reset(self.data);
+        }
+        match ret {
+            Ok(ListResult::Normal(_)) => {
                 unreachable!("normal should not return")
             }
-            ListResult::Terse(names) => {
+            Ok(ListResult::Terse(names)) => {
                 let name = self.name.to_string_lossy().to_string();
                 Ok(names.contains(&name))
             }
+            Err(Error::Cmd(msg, true)) if msg.contains("does not exist") => {
+                Ok(false)
+            }
+            Err(e) => Err(e),
         }
     }
 

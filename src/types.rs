@@ -392,6 +392,14 @@ impl_name!(PortDataType, "port");
 impl_name!(IfaceDataType, "iface");
 impl_name!(MarkDataType, "mark");
 impl_name!(SetDataType, "set");
+
+// Special case for single-element tuple
+impl<A: TypeName> TypeName for (A,) {
+    fn name() -> String {
+        A::name()
+    }
+}
+
 impl_name!(A, B);
 impl_name!(A, B, C);
 
@@ -408,6 +416,13 @@ macro_rules! impl_set_data {
             }
         }
     };
+}
+
+// Special case for single-element tuple
+impl<T: SetType, A: SetData<T>> SetData<T> for (A,) {
+    fn set_data(&self, session: &Session<T>, from: Option<bool>) -> Result<(), Error> {
+        self.0.set_data(session, from)
+    }
 }
 
 impl_set_data!(A, B);
@@ -432,6 +447,13 @@ macro_rules! impl_parse {
             }
         }
     };
+}
+
+// Special case for single-element tuple
+impl<A: Parse> Parse for (A,) {
+    fn parse(&mut self, s: &str) -> Result<(), Error> {
+        self.0.parse(s)
+    }
 }
 
 impl_parse!(A, B);
@@ -880,7 +902,25 @@ impl<T: SetType> NormalListResult<T> {
                             options.push(AddOption::Bytes(fields[i + 1].parse()?));
                         }
                         "comment" => {
-                            options.push(AddOption::Comment(fields[i + 1].to_string()));
+                            // Collect all tokens between quotes
+                            let mut comment = String::new();
+                            let mut j = i + 1;
+                            while j < fields.len() {
+                                if !comment.is_empty() {
+                                    comment.push(' ');
+                                }
+                                comment.push_str(fields[j]);
+                                // Check if this token ends with a quote
+                                if fields[j].ends_with('"') {
+                                    break;
+                                }
+                                j += 1;
+                            }
+                            // Remove quotes
+                            comment = comment.trim_matches('"').to_string();
+                            options.push(AddOption::Comment(comment));
+                            i = j + 1; // Move past the last token of comment
+                            continue;
                         }
                         "skbmark" => {
                             let values: Vec<_> = fields[i + 1].split('/').collect();
@@ -927,6 +967,7 @@ pub struct ListHeader {
     hash_size: u32,
     bucket_size: Option<u32>,
     max_elem: u32,
+    timeout: Option<u32>,
     counters: bool,
     comment: bool,
     skbinfo: bool,
@@ -954,6 +995,10 @@ impl ListHeader {
                 },
                 "maxelem" => {
                     header.max_elem = s[i + 1].parse().unwrap();
+                    i += 2;
+                }
+                "timeout" => {
+                    header.timeout = Some(s[i + 1].parse().unwrap());
                     i += 2;
                 }
                 "counters" => {
